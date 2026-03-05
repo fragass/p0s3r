@@ -1,12 +1,13 @@
-import { supabaseAdmin, requireUser, json } from "./_supabaseAdmin.js";
+import { supabaseAdmin } from "./_supabase.js";
+import { json, requireSession } from "./_auth.js";
 
 export default async function handler(req, res) {
   try {
     if (req.method !== "GET") return json(res, 405, { error: "Method not allowed" });
+    const { user } = await requireSession(req);
 
-    const user = await requireUser(req);
     const threadId = String(req.query.thread_id || "");
-    if (!threadId) throw new Error("thread_id obrigatório.");
+    if (!threadId) return json(res, 400, { error: "thread_id obrigatório." });
 
     const { data: mem, error: me } = await supabaseAdmin
       .from("thread_members")
@@ -14,9 +15,8 @@ export default async function handler(req, res) {
       .eq("thread_id", threadId)
       .eq("user_id", user.id)
       .maybeSingle();
-
     if (me) throw me;
-    if (!mem) throw new Error("Sem acesso ao chat.");
+    if (!mem) return json(res, 403, { error: "Sem acesso ao chat." });
 
     const { data: msgs, error: mge } = await supabaseAdmin
       .from("messages")
@@ -28,15 +28,14 @@ export default async function handler(req, res) {
     if (mge) throw mge;
 
     const senderIds = [...new Set((msgs || []).map(m => m.sender_id))];
-    const { data: profs, error: pe } = await supabaseAdmin
-      .from("profiles")
+    const { data: users, error: ue } = await supabaseAdmin
+      .from("users")
       .select("id,username")
       .in("id", senderIds);
 
-    if (pe) throw pe;
+    if (ue) throw ue;
 
-    const map = new Map((profs || []).map(p => [p.id, p.username]));
-
+    const map = new Map((users || []).map(u => [u.id, u.username]));
     const out = (msgs || []).map(m => ({
       ...m,
       sender_username: map.get(m.sender_id) || null
@@ -44,6 +43,6 @@ export default async function handler(req, res) {
 
     return json(res, 200, { messages: out });
   } catch (e) {
-    return json(res, 400, { error: e.message || "Erro." });
+    return json(res, 500, { error: e?.message || "Erro interno" });
   }
 }
