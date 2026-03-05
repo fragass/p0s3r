@@ -9,7 +9,6 @@ const password = document.getElementById("password");
 const username = document.getElementById("username");
 
 const submitBtn = document.getElementById("submitBtn");
-const toggleMode = document.getElementById("toggleMode");
 const signupExtra = document.getElementById("signupExtra");
 const msg = document.getElementById("msg");
 
@@ -31,15 +30,20 @@ themeBtn.addEventListener("click", () => {
 });
 
 function bindToggleLink(){
-  document.getElementById("toggleMode").addEventListener("click", (e) => {
+  const el = document.getElementById("toggleMode");
+  if (!el) return;
+
+  el.addEventListener("click", (e) => {
     e.preventDefault();
     mode = mode === "login" ? "signup" : "login";
     signupExtra.style.display = mode === "signup" ? "grid" : "none";
     submitBtn.textContent = mode === "signup" ? "Criar conta" : "Entrar";
+
     document.querySelector("#toggleRow").innerHTML =
       mode === "signup"
         ? `Já tem conta? <a class="link" href="#" id="toggleMode">Entrar</a>`
         : `Não tem conta? <a class="link" href="#" id="toggleMode">Cadastrar</a>`;
+
     msg.textContent = "";
     bindToggleLink();
   });
@@ -49,7 +53,7 @@ bindToggleLink();
 async function ensureReady(){
   supabase = await getSupabase();
   const { data } = await supabase.auth.getSession();
-  if (data.session) window.location.href = "/index.html";
+  if (data.session) window.location.replace("/p0s3r.html");
 }
 ensureReady();
 
@@ -86,7 +90,13 @@ submitBtn.addEventListener("click", async () => {
         await setUsernameForUser(userId, username.value);
       }
 
-      msg.textContent = "Conta criada. Se precisar, confirme o email e faça login.";
+      msg.textContent = "Conta criada. Agora faça login.";
+      mode = "login";
+      signupExtra.style.display = "none";
+      submitBtn.textContent = "Entrar";
+      document.querySelector("#toggleRow").innerHTML =
+        `Não tem conta? <a class="link" href="#" id="toggleMode">Cadastrar</a>`;
+      bindToggleLink();
     } else {
       const { error } = await supabase.auth.signInWithPassword({
         email: email.value.trim(),
@@ -94,11 +104,15 @@ submitBtn.addEventListener("click", async () => {
       });
       if(error) throw error;
 
-      msg.textContent = "Logado. Indo pro chat…";
-      window.location.href = "/index.html";
+      window.location.replace("/p0s3r.html");
     }
   } catch(e){
-    msg.textContent = e?.message || "Erro.";
+    const msgRaw = e?.message || "Erro.";
+    if (msgRaw.toLowerCase().includes("email not confirmed")) {
+      msg.textContent = "Email não confirmado. Desative a confirmação no Supabase (Auth → Providers → Email) ou confirme o email do usuário.";
+    } else {
+      msg.textContent = msgRaw;
+    }
   } finally {
     submitBtn.disabled = false;
   }
