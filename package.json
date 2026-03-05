@@ -1,0 +1,11 @@
+{
+  "name": "w0rkd4y-html-api-supabase",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "bcryptjs": "^2.4.3",
+    "formidable": "^3.5.4"
+  }
+}
