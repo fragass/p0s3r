@@ -1,3 +1,5 @@
+export const config = { runtime: "nodejs18.x" };
+
 import { supabaseAdmin, requireUser, json } from "./_supabaseAdmin.js";
 
 export default async function handler(req, res) {
@@ -63,11 +65,9 @@ export default async function handler(req, res) {
       return { id: t.id, type: t.type, title, last_preview: preview, last_time: time };
     });
 
-    // Ordena por "tem last_time primeiro" (bom o suficiente pro MVP)
     out.sort((a, b) => (b.last_time || "").localeCompare(a.last_time || ""));
-
     return json(res, 200, { threads: out });
   } catch (e) {
-    return json(res, 400, { error: e.message || "Erro." });
+    return json(res, 400, { error: e?.message || "Erro." });
   }
 }
