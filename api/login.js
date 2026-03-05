@@ -10,11 +10,17 @@ module.exports = async function handler(req, res) {
   try {
     const sb = admin();
 
-    const { data: user } = await sb.from("users").select("id,username,password_hash").eq("username", String(username)).maybeSingle();
-    if (!user) return res.status(401).json({ success: false });
+    const { data: user, error: uErr } = await sb
+      .from("users")
+      .select("id,username,password_hash")
+      .eq("username", String(username))
+      .maybeSingle();
+
+    if (uErr) return res.status(400).json({ success: false, message: uErr.message });
+    if (!user) return res.status(401).json({ success: false, message: "Usuário ou senha inválidos." });
 
     const ok = await bcrypt.compare(String(password), user.password_hash);
-    if (!ok) return res.status(401).json({ success: false });
+    if (!ok) return res.status(401).json({ success: false, message: "Usuário ou senha inválidos." });
 
     const token = makeToken();
     const ttl = Number(process.env.SESSION_TTL_HOURS || 168);
@@ -25,6 +31,8 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({ success: true, token, user: user.username });
   } catch (e) {
-    return res.status(500).json({ success: false, message: "Erro interno" });
+    const msg = e && e.message ? e.message : "Erro interno";
+    const status = e && e.status ? e.status : 500;
+    return res.status(status).json({ success: false, message: msg });
   }
 };
