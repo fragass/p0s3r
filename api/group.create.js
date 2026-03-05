@@ -1,34 +1,33 @@
-import { supabaseAdmin, requireUser, json } from "./_supabaseAdmin.js";
+import { supabaseAdmin } from "./_supabase.js";
+import { json, getBody, requireSession } from "./_auth.js";
 
 export default async function handler(req, res) {
   try {
     if (req.method !== "POST") return json(res, 405, { error: "Method not allowed" });
+    const { user } = await requireSession(req);
 
-    const user = await requireUser(req);
-    const { title, members } = req.body || {};
+    const body = getBody(req);
+    const title = String(body.title || "").trim();
+    const members = Array.isArray(body.members) ? body.members : [];
 
-    const groupTitle = String(title || "").trim();
-    if (groupTitle.length < 3) throw new Error("Nome do grupo precisa ter 3+ caracteres.");
+    if (title.length < 3) return json(res, 400, { error: "Nome do grupo precisa ter 3+ caracteres." });
 
-    const usernames = Array.isArray(members) ? members : [];
-    const cleaned = [...new Set(
-      usernames.map(x => String(x || "").trim().toLowerCase()).filter(Boolean)
-    )];
+    const clean = [...new Set(members.map(x => String(x || "").trim().toLowerCase()).filter(Boolean))];
 
     let ids = [];
-    if (cleaned.length) {
-      const { data: profs, error: pe } = await supabaseAdmin
-        .from("profiles")
+    if (clean.length) {
+      const { data, error } = await supabaseAdmin
+        .from("users")
         .select("id,username")
-        .in("username", cleaned);
+        .in("username", clean);
 
-      if (pe) throw pe;
-      ids = (profs || []).map(p => p.id);
+      if (error) throw error;
+      ids = (data || []).map(u => u.id);
     }
 
     const { data: t, error: te } = await supabaseAdmin
       .from("threads")
-      .insert({ type: "group", title: groupTitle, created_by: user.id })
+      .insert({ type: "group", title, created_by: user.id })
       .select("id,title")
       .single();
 
@@ -39,10 +38,11 @@ export default async function handler(req, res) {
       ...ids.filter(id => id !== user.id).map(id => ({ thread_id: t.id, user_id: id, role: "member" }))
     ];
 
-    await supabaseAdmin.from("thread_members").upsert(rows);
+    const { error: me } = await supabaseAdmin.from("thread_members").upsert(rows);
+    if (me) throw me;
 
-    return json(res, 200, { thread: { id: t.id, title: t.title } });
+    return json(res, 200, { ok: true, thread: { id: t.id, title: t.title } });
   } catch (e) {
-    return json(res, 400, { error: e.message || "Erro." });
+    return json(res, 500, { error: e?.message || "Erro interno" });
   }
 }
