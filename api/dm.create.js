@@ -1,5 +1,3 @@
-export const config = { runtime: "nodejs18.x" };
-
 import { supabaseAdmin, requireUser, json } from "./_supabaseAdmin.js";
 
 function dmKey(a, b) {
@@ -71,3 +69,4 @@ export default async function handler(req, res) {
     return json(res, 400, { error: e?.message || "Erro." });
   }
 }
+
