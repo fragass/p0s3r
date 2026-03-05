@@ -35,8 +35,8 @@ export default function ChatPage() {
   const listRef = useRef<HTMLDivElement | null>(null);
   const lastIdRef = useRef<number>(0);
 
-  // ✅ sempre retorna um tipo aceito por fetch (HeadersInit)
-  const authHeaders = (): HeadersInit => {
+  // ✅ sempre um objeto simples => TS não quebra no spread e fetch aceita.
+  const authHeaders = (): Record<string, string> => {
     const h: Record<string, string> = {};
     if (token) h.Authorization = `Bearer ${token}`;
     return h;
@@ -87,10 +87,7 @@ export default function ChatPage() {
     const incoming: Message[] = data.messages || [];
     if (!incoming.length) return;
 
-    setMessages((prev) => {
-      const merged = afterId ? [...prev, ...incoming] : incoming;
-      return merged;
-    });
+    setMessages((prev) => (afterId ? [...prev, ...incoming] : incoming));
 
     const maxId = Math.max(...incoming.map((m) => m.id));
     lastIdRef.current = Math.max(lastIdRef.current, maxId);
@@ -284,12 +281,7 @@ export default function ChatPage() {
                   </div>
                 )}
                 {m.image_url && (
-                  <a
-                    href={m.image_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-block text-primary hover:underline text-sm"
-                  >
+                  <a href={m.image_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-primary hover:underline text-sm">
                     imagem
                   </a>
                 )}
@@ -322,11 +314,7 @@ export default function ChatPage() {
                   if (e.key === "Enter") send();
                 }}
               />
-              <button
-                className="bg-primary text-black font-semibold rounded-lg px-5 py-3"
-                onClick={send}
-                type="button"
-              >
+              <button className="bg-primary text-black font-semibold rounded-lg px-5 py-3" onClick={send} type="button">
                 Enviar
               </button>
             </div>
