@@ -10,7 +10,9 @@ module.exports = async function handler(req, res) {
 
   const { username, password } = req.body || {};
   if (!isValidUsername(username) || typeof password !== "string" || password.length < 4) {
-    return res.status(400).json({ success: false, message: "Usuário inválido (3+ letras/números/_) ou senha muito curta." });
+    return res
+      .status(400)
+      .json({ success: false, message: "Usuário inválido (3+ letras/números/_) ou senha muito curta." });
   }
 
   try {
@@ -38,6 +40,8 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({ success: true, token, user: created.username });
   } catch (e) {
-    return res.status(500).json({ success: false, message: "Erro interno" });
+    const msg = e && e.message ? e.message : "Erro interno";
+    const status = e && e.status ? e.status : 500;
+    return res.status(status).json({ success: false, message: msg });
   }
 };
