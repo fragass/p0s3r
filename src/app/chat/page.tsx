@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Room = { id: string; name: string };
 type Message = {
@@ -35,7 +35,12 @@ export default function ChatPage() {
   const listRef = useRef<HTMLDivElement | null>(null);
   const lastIdRef = useRef<number>(0);
 
-  const headers = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
+  // ✅ sempre retorna um tipo aceito por fetch (HeadersInit)
+  const authHeaders = (): HeadersInit => {
+    const h: Record<string, string> = {};
+    if (token) h.Authorization = `Bearer ${token}`;
+    return h;
+  };
 
   function scrollToBottom() {
     requestAnimationFrame(() => {
@@ -52,17 +57,18 @@ export default function ChatPage() {
   useEffect(() => {
     if (!token) return;
 
-    fetch("/api/auth/me", { headers })
+    fetch("/api/auth/me", { headers: authHeaders() })
       .then(async (r) => {
         if (!r.ok) throw new Error("Sessão inválida");
         return r.json();
       })
       .then((data) => setMe(data.user))
       .catch(() => (window.location.href = "/"));
-  }, [token, headers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   async function loadRooms() {
-    const res = await fetch("/api/rooms/list", { headers });
+    const res = await fetch("/api/rooms/list", { headers: authHeaders() });
     const data = await res.json();
     if (!res.ok) throw new Error(data?.error || "Erro ao listar salas");
     setRooms(data.rooms);
@@ -74,7 +80,7 @@ export default function ChatPage() {
     url.searchParams.set("roomId", roomId);
     if (afterId) url.searchParams.set("afterId", String(afterId));
 
-    const res = await fetch(url.toString(), { headers });
+    const res = await fetch(url.toString(), { headers: authHeaders() });
     const data = await res.json();
     if (!res.ok) throw new Error(data?.error || "Erro ao buscar mensagens");
 
@@ -92,11 +98,11 @@ export default function ChatPage() {
   }
 
   async function pingPresence() {
-    await fetch("/api/presence/ping", { method: "POST", headers });
+    await fetch("/api/presence/ping", { method: "POST", headers: authHeaders() });
   }
 
   async function loadOnline() {
-    const res = await fetch("/api/presence/list", { headers });
+    const res = await fetch("/api/presence/list", { headers: authHeaders() });
     const data = await res.json();
     if (res.ok) setOnline(data.online || []);
   }
@@ -114,6 +120,7 @@ export default function ChatPage() {
       clearInterval(t1);
       clearInterval(t2);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   useEffect(() => {
@@ -127,6 +134,7 @@ export default function ChatPage() {
     }, 1500);
 
     return () => clearInterval(poll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRoom?.id]);
 
   async function send() {
@@ -134,11 +142,13 @@ export default function ChatPage() {
     if (!content || !activeRoom) return;
 
     setText("");
+
     const res = await fetch("/api/messages/send", {
       method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ roomId: activeRoom.id, content })
     });
+
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       setToast({ type: "err", msg: data?.error || "Erro ao enviar" });
@@ -156,9 +166,10 @@ export default function ChatPage() {
 
     const res = await fetch("/api/rooms/create", {
       method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ name })
     });
+
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       setToast({ type: "err", msg: data?.error || "Erro ao criar sala" });
@@ -171,7 +182,7 @@ export default function ChatPage() {
   }
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST", headers }).catch(() => {});
+    await fetch("/api/auth/logout", { method: "POST", headers: authHeaders() }).catch(() => {});
     localStorage.removeItem("token");
     localStorage.removeItem("loggedUser");
     window.location.href = "/";
@@ -180,6 +191,7 @@ export default function ChatPage() {
   return (
     <div className="min-h-screen p-4">
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4">
+        {/* Sidebar */}
         <div className="bg-panel border border-border rounded-xl overflow-hidden">
           <div className="p-4 border-b border-border flex items-center justify-between gap-3">
             <div>
@@ -250,6 +262,7 @@ export default function ChatPage() {
           </div>
         </div>
 
+        {/* Chat */}
         <div className="bg-panel border border-border rounded-xl overflow-hidden flex flex-col min-h-[70vh]">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div>
@@ -282,9 +295,7 @@ export default function ChatPage() {
                 )}
               </div>
             ))}
-            {!messages.length && (
-              <div className="text-sm text-muted">Sem mensagens ainda. Manda a primeira 🙂</div>
-            )}
+            {!messages.length && <div className="text-sm text-muted">Sem mensagens ainda. Manda a primeira 🙂</div>}
           </div>
 
           <div className="p-4 border-t border-border">
@@ -320,9 +331,7 @@ export default function ChatPage() {
               </button>
             </div>
 
-            <div className="mt-2 text-xs text-muted">
-              Enter envia • Polling leve (1.5s) no Vercel
-            </div>
+            <div className="mt-2 text-xs text-muted">Enter envia • Polling leve (1.5s) no Vercel</div>
           </div>
         </div>
       </div>
