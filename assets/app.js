@@ -1,16 +1,13 @@
-import { getSupabase } from "/assets/supabaseClient.js";
-
 const app = document.getElementById("app");
 const themeBtn = document.getElementById("themeBtn");
 const themeIcon = document.getElementById("themeIcon");
 const themeLabel = document.getElementById("themeLabel");
 
+const meLabel = document.getElementById("meLabel");
 const sbMsg = document.getElementById("sbMsg");
-const searchInput = document.getElementById("searchInput");
 
 const dmUserInput = document.getElementById("dmUserInput");
 const dmCreateBtn = document.getElementById("dmCreateBtn");
-
 const logoutBtn = document.getElementById("logoutBtn");
 
 const dmList = document.getElementById("dmList");
@@ -27,7 +24,7 @@ const sendBtn = document.getElementById("sendBtn");
 const attachBtn = document.getElementById("attachBtn");
 const fileInput = document.getElementById("file");
 
-// Modais
+// modais
 const groupModal = document.getElementById("groupModal");
 const groupOpenBtn = document.getElementById("groupOpenBtn");
 const groupCloseBtn = document.getElementById("groupCloseBtn");
@@ -42,13 +39,40 @@ const memberUsername = document.getElementById("memberUsername");
 const memberAddBtn = document.getElementById("memberAddBtn");
 const memberMsg = document.getElementById("memberMsg");
 
-let supabase = null;
-let session = null;
+let token = null;
 let me = null;
 
 let threads = [];
 let activeThread = null;
 let pollTimer = null;
+
+function setTheme(theme){
+  app.setAttribute("data-theme", theme);
+  const isDark = theme === "dark";
+  themeIcon.textContent = isDark ? "☀️" : "🌙";
+  themeLabel.textContent = isDark ? "Light" : "Dark";
+  localStorage.setItem("theme", theme);
+}
+setTheme(localStorage.getItem("theme") || "light");
+themeBtn.addEventListener("click", () => {
+  const cur = app.getAttribute("data-theme") || "light";
+  setTheme(cur === "dark" ? "light" : "dark");
+});
+
+function show(el){ el.style.display = "flex"; }
+function hide(el){ el.style.display = "none"; }
+
+groupOpenBtn.addEventListener("click", () => {
+  groupMsg.textContent = "";
+  groupTitle.value = "";
+  groupMembers.value = "";
+  show(groupModal);
+});
+groupCloseBtn.addEventListener("click", () => hide(groupModal));
+groupModal.addEventListener("click", (e)=>{ if(e.target===groupModal) hide(groupModal); });
+
+memberCloseBtn.addEventListener("click", ()=> hide(memberModal));
+memberModal.addEventListener("click", (e)=>{ if(e.target===memberModal) hide(memberModal); });
 
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, m => ({
@@ -59,77 +83,49 @@ function initials(name){
   const s = (name || "?").replace("@","").trim();
   return (s[0] || "?").toUpperCase();
 }
-function setTheme(theme){
-  app.setAttribute("data-theme", theme);
-  const isDark = theme === "dark";
-  themeIcon.textContent = isDark ? "☀️" : "🌙";
-  themeLabel.textContent = isDark ? "Light" : "Dark";
-  localStorage.setItem("theme", theme);
-}
-setTheme(localStorage.getItem("theme") || "light");
-themeBtn.addEventListener("click", () => {
-  const cur = app.getAttribute("data-theme");
-  setTheme(cur === "dark" ? "light" : "dark");
-});
-
-function showModal(el){ el.style.display = "flex"; }
-function hideModal(el){ el.style.display = "none"; }
-
-groupOpenBtn.addEventListener("click", () => {
-  groupMsg.textContent = "";
-  groupTitle.value = "";
-  groupMembers.value = "";
-  showModal(groupModal);
-});
-groupCloseBtn.addEventListener("click", () => hideModal(groupModal));
-groupModal.addEventListener("click", (e) => { if(e.target === groupModal) hideModal(groupModal); });
-
-memberCloseBtn.addEventListener("click", () => hideModal(memberModal));
-memberModal.addEventListener("click", (e) => { if(e.target === memberModal) hideModal(memberModal); });
-
-logoutBtn.addEventListener("click", async () => {
-  await supabase.auth.signOut();
-  window.location.replace("/index.html");
-});
-
-async function requireSession(){
-  supabase = await getSupabase();
-
-  const { data } = await supabase.auth.getSession();
-  session = data.session;
-
-  if(!session){
-    window.location.replace("/index.html");
-    return;
-  }
-
-  const { data: u } = await supabase.auth.getUser();
-  me = u.user;
-}
+function setSb(t){ sbMsg.textContent = t || ""; }
 
 async function api(path, opts = {}){
-  const token = session?.access_token;
-
   const headers = {
-    "Content-Type": "application/json",
+    "Content-Type":"application/json",
     ...(opts.headers || {}),
     ...(token ? { "Authorization": `Bearer ${token}` } : {})
   };
-
   const res = await fetch(path, { ...opts, headers });
-  const json = await res.json().catch(() => ({}));
+  const json = await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
   return json;
 }
 
+async function bootAuth(){
+  token = localStorage.getItem("token");
+  if(!token) return window.location.replace("/index.html");
+
+  const meRes = await api("/api/auth.me", { method:"GET" });
+  me = meRes.user;
+
+  meLabel.textContent = `Logado como @${me.username}`;
+}
+
+logoutBtn.addEventListener("click", async () => {
+  try { await api("/api/auth.logout", { method:"POST", body:"{}" }); } catch {}
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  window.location.replace("/index.html");
+});
+
+async function loadThreads(){
+  const data = await api("/api/threads.list", { method:"GET" });
+  threads = data.threads || [];
+  renderThreads();
+}
+
 function renderThreads(){
-  const f = (searchInput.value || "").trim().toLowerCase();
-
-  const dms = threads.filter(t => t.type === "dm" && (!f || t.title.toLowerCase().includes(f)));
-  const grps = threads.filter(t => t.type === "group" && (!f || t.title.toLowerCase().includes(f)));
-
   dmList.innerHTML = "";
   groupList.innerHTML = "";
+
+  const dms = threads.filter(t => t.type === "dm");
+  const grps = threads.filter(t => t.type === "group");
 
   const makeItem = (t) => {
     const btn = document.createElement("button");
@@ -149,76 +145,54 @@ function renderThreads(){
     return btn;
   };
 
-  if(dms.length === 0){
+  if(!dms.length){
     const x = document.createElement("div");
-    x.className = "small";
-    x.style.padding = "8px 10px";
+    x.className = "small"; x.style.padding="8px 10px";
     x.textContent = "Sem DMs.";
     dmList.appendChild(x);
-  } else {
-    dms.forEach(t => dmList.appendChild(makeItem(t)));
-  }
+  } else dms.forEach(t => dmList.appendChild(makeItem(t)));
 
-  if(grps.length === 0){
+  if(!grps.length){
     const x = document.createElement("div");
-    x.className = "small";
-    x.style.padding = "8px 10px";
+    x.className = "small"; x.style.padding="8px 10px";
     x.textContent = "Sem grupos.";
     groupList.appendChild(x);
-  } else {
-    grps.forEach(t => groupList.appendChild(makeItem(t)));
-  }
+  } else grps.forEach(t => groupList.appendChild(makeItem(t)));
 }
-
-async function loadThreads(){
-  const data = await api("/api/threads.list", { method: "GET" });
-  threads = data.threads || [];
-  renderThreads();
-}
-
-searchInput.addEventListener("input", renderThreads);
 
 dmCreateBtn.addEventListener("click", async () => {
-  sbMsg.textContent = "Criando DM…";
   try{
-    const username = dmUserInput.value.trim().toLowerCase();
-    if(!/^[a-z0-9_]{3,20}$/.test(username)){
-      throw new Error("Username inválido (a-z, 0-9, _ e 3-20).");
-    }
-
+    setSb("Criando DM…");
+    const u = dmUserInput.value.trim().toLowerCase();
     const out = await api("/api/dm.create", {
-      method: "POST",
-      body: JSON.stringify({ username })
+      method:"POST",
+      body: JSON.stringify({ username: u })
     });
-
-    sbMsg.textContent = "DM pronto ✅";
     dmUserInput.value = "";
+    setSb("DM pronto ✅");
     await loadThreads();
     await openThread(out.thread.id);
   } catch(e){
-    sbMsg.textContent = e.message;
+    setSb(e.message);
   }
 });
 
 groupCreateBtn.addEventListener("click", async () => {
-  groupMsg.textContent = "Criando grupo…";
+  groupMsg.textContent = "Criando…";
   groupCreateBtn.disabled = true;
   try{
     const title = groupTitle.value.trim();
-    const members = groupMembers.value
-      .split("\n")
-      .map(s => s.trim().toLowerCase())
-      .filter(Boolean);
+    const members = groupMembers.value.split("\n").map(s=>s.trim().toLowerCase()).filter(Boolean);
 
     const out = await api("/api/group.create", {
-      method: "POST",
+      method:"POST",
       body: JSON.stringify({ title, members })
     });
 
-    groupMsg.textContent = "Grupo criado ✅";
+    groupMsg.textContent = "Criado ✅";
+    hide(groupModal);
     await loadThreads();
     await openThread(out.thread.id);
-    hideModal(groupModal);
   } catch(e){
     groupMsg.textContent = e.message;
   } finally {
@@ -229,7 +203,7 @@ groupCreateBtn.addEventListener("click", async () => {
 addMemberBtn.addEventListener("click", () => {
   memberMsg.textContent = "";
   memberUsername.value = "";
-  showModal(memberModal);
+  show(memberModal);
 });
 
 memberAddBtn.addEventListener("click", async () => {
@@ -237,19 +211,11 @@ memberAddBtn.addEventListener("click", async () => {
   memberAddBtn.disabled = true;
   try{
     const u = memberUsername.value.trim().toLowerCase();
-    if(!/^[a-z0-9_]{3,20}$/.test(u)){
-      throw new Error("Username inválido.");
-    }
-    if(!activeThread?.id) throw new Error("Nenhum chat selecionado.");
-    if(activeThread.type !== "group") throw new Error("Isso só funciona em grupo.");
-
     await api("/api/group.addMember", {
-      method: "POST",
+      method:"POST",
       body: JSON.stringify({ thread_id: activeThread.id, username: u })
     });
-
-    memberMsg.textContent = "Adicionado ✅";
-    hideModal(memberModal);
+    hide(memberModal);
   } catch(e){
     memberMsg.textContent = e.message;
   } finally {
@@ -260,9 +226,7 @@ memberAddBtn.addEventListener("click", async () => {
 function formatHHMM(dateStr){
   if(!dateStr) return "";
   const d = new Date(dateStr);
-  const hh = String(d.getHours()).padStart(2,"0");
-  const mm = String(d.getMinutes()).padStart(2,"0");
-  return `${hh}:${mm}`;
+  return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 }
 
 async function openThread(threadId){
@@ -282,13 +246,13 @@ async function openThread(threadId){
   pollTimer = setInterval(() => loadMessages(false), 1500);
 }
 
-async function loadMessages(forceScroll){
+async function loadMessages(scroll){
   if(!activeThread?.id) return;
 
-  const data = await api(`/api/messages.list?thread_id=${encodeURIComponent(activeThread.id)}`, { method: "GET" });
+  const data = await api(`/api/messages.list?thread_id=${encodeURIComponent(activeThread.id)}`, { method:"GET" });
   const items = data.messages || [];
 
-  msgs.innerHTML = `<div class="day">Hoje</div>` + items.map(m => {
+  msgs.innerHTML = items.map(m => {
     const mine = m.sender_id === me.id;
     const name = mine ? "Você" : (m.sender_username ? `@${m.sender_username}` : "User");
     const t = formatHHMM(m.created_at);
@@ -298,39 +262,35 @@ async function loadMessages(forceScroll){
            <a class="link" href="${escapeHtml(m.attachment_url)}" target="_blank" rel="noreferrer">
              📎 ${escapeHtml(m.attachment_name || "anexo")}
            </a>
-         </div>`
-      : "";
+         </div>` : "";
 
-    const body = m.body
-      ? `<div class="text">${escapeHtml(m.body).replace(/@(\w+)/g,'<span class="mention">@$1</span>')}</div>`
-      : "";
+    const body = m.body ? `<div class="text">${escapeHtml(m.body)}</div>` : "";
 
     return `
-      <div class="msg ${mine ? "me" : ""}">
+      <div class="msg ${mine ? "me":""}">
         <div class="avatar">${initials(name)}</div>
         <div class="bubble">
           <div class="meta"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(t)}</span></div>
-          ${body}
-          ${attach}
+          ${body}${attach}
         </div>
       </div>
     `;
-  }).join("");
+  }).join("") || `<div class="small" style="text-align:center;margin-top:16px;">Sem mensagens.</div>`;
 
-  if(forceScroll) msgs.scrollTop = msgs.scrollHeight;
+  if(scroll) msgs.scrollTop = msgs.scrollHeight;
 }
 
-attachBtn.addEventListener("click", () => fileInput.click());
+attachBtn.addEventListener("click", ()=> fileInput.click());
 
-async function uploadViaApi(file){
+async function uploadBase64(file){
   const ab = await file.arrayBuffer();
   const bytes = new Uint8Array(ab);
-  let binary = "";
-  for(let i=0;i<bytes.length;i++) binary += String.fromCharCode(bytes[i]);
-  const b64 = btoa(binary);
+  let bin = "";
+  for(let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+  const b64 = btoa(bin);
 
   const out = await api("/api/upload.file", {
-    method: "POST",
+    method:"POST",
     body: JSON.stringify({
       filename: file.name,
       contentType: file.type || "application/octet-stream",
@@ -338,7 +298,7 @@ async function uploadViaApi(file){
     })
   });
 
-  return out; // {url,name,type}
+  return out;
 }
 
 async function send(){
@@ -348,23 +308,22 @@ async function send(){
   try{
     const text = input.value.trim();
     const file = fileInput.files?.[0] || null;
-
     if(!text && !file) return;
 
-    let attachment = null;
+    let att = null;
     if(file){
-      attachment = await uploadViaApi(file);
+      att = await uploadBase64(file);
       fileInput.value = "";
     }
 
     await api("/api/messages.send", {
-      method: "POST",
+      method:"POST",
       body: JSON.stringify({
         thread_id: activeThread.id,
         body: text || null,
-        attachment_url: attachment?.url || null,
-        attachment_name: attachment?.name || null,
-        attachment_type: attachment?.type || null
+        attachment_url: att?.url || null,
+        attachment_name: att?.name || null,
+        attachment_type: att?.type || null
       })
     });
 
@@ -372,22 +331,21 @@ async function send(){
     await loadThreads();
     await loadMessages(true);
   } catch(e){
-    sbMsg.textContent = e.message;
+    setSb(e.message);
   } finally {
     sendBtn.disabled = false;
   }
 }
 
 sendBtn.addEventListener("click", send);
-input.addEventListener("keydown", (e) => {
+input.addEventListener("keydown", (e)=>{
   if(e.key === "Enter" && !e.shiftKey){
     e.preventDefault();
     send();
   }
 });
 
-(async function boot(){
-  await requireSession();
-  if(!session) return;
+(async function start(){
+  await bootAuth();
   await loadThreads();
 })();
