@@ -47,7 +47,7 @@ let session = null;
 let me = null;
 
 let threads = [];
-let activeThread = null; // {id,type,title}
+let activeThread = null;
 let pollTimer = null;
 
 function escapeHtml(str){
@@ -89,14 +89,19 @@ memberModal.addEventListener("click", (e) => { if(e.target === memberModal) hide
 
 logoutBtn.addEventListener("click", async () => {
   await supabase.auth.signOut();
-  window.location.href = "/login.html";
+  window.location.replace("/index.html");
 });
 
 async function requireSession(){
   supabase = await getSupabase();
+
   const { data } = await supabase.auth.getSession();
   session = data.session;
-  if(!session) window.location.href = "/login.html";
+
+  if(!session){
+    window.location.replace("/index.html");
+    return;
+  }
 
   const { data: u } = await supabase.auth.getUser();
   me = u.user;
@@ -104,6 +109,7 @@ async function requireSession(){
 
 async function api(path, opts = {}){
   const token = session?.access_token;
+
   const headers = {
     "Content-Type": "application/json",
     ...(opts.headers || {}),
@@ -179,10 +185,12 @@ dmCreateBtn.addEventListener("click", async () => {
     if(!/^[a-z0-9_]{3,20}$/.test(username)){
       throw new Error("Username inválido (a-z, 0-9, _ e 3-20).");
     }
+
     const out = await api("/api/dm.create", {
       method: "POST",
       body: JSON.stringify({ username })
     });
+
     sbMsg.textContent = "DM pronto ✅";
     dmUserInput.value = "";
     await loadThreads();
@@ -315,7 +323,6 @@ async function loadMessages(forceScroll){
 attachBtn.addEventListener("click", () => fileInput.click());
 
 async function uploadViaApi(file){
-  // Lê base64 (MVP)
   const ab = await file.arrayBuffer();
   const bytes = new Uint8Array(ab);
   let binary = "";
@@ -381,5 +388,6 @@ input.addEventListener("keydown", (e) => {
 
 (async function boot(){
   await requireSession();
+  if(!session) return;
   await loadThreads();
 })();
