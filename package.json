@@ -1,8 +1,0 @@
-{
-  "name": "p0s3r-teams-lite",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "@supabase/supabase-js": "^2.97.0"
-  }
-}
