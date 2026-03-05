@@ -4,18 +4,18 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Chat</title>
+  <link rel="icon" href="favicon.png" type="image/png">
   <link rel="stylesheet" href="/assets/app.css"/>
 </head>
 <body>
-  <div class="app" id="app" data-theme="light">
+  <div class="app" id="app">
     <aside class="sidebar">
       <div class="sb-top">
-        <div class="brand-row">
-          <div class="brand-title">
-            <strong>Workspace</strong>
-            <span>DM + Grupos • básico</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;">
+          <div>
+            <div style="font-weight:900;">Chats</div>
+            <div class="small" id="meLabel">…</div>
           </div>
-
           <button class="btn" id="themeBtn" type="button">
             <span id="themeIcon">🌙</span><span id="themeLabel">Dark</span>
           </button>
@@ -28,76 +28,71 @@
 
         <div class="row" style="margin-top:10px;">
           <button class="btn" id="groupOpenBtn" type="button">+ Grupo</button>
-          <input class="input" id="searchInput" placeholder="Pesquisar…"/>
           <button class="btn" id="logoutBtn" type="button">Sair</button>
         </div>
 
-        <div id="sbMsg" class="small" style="margin-top:8px;min-height:18px;"></div>
+        <div class="small" id="sbMsg" style="margin-top:8px;min-height:18px;"></div>
       </div>
 
-      <div class="sb-list" id="chatList">
-        <div class="section-title"><span>DM</span><span class="pill">privado</span></div>
+      <div class="sb-list">
+        <div class="small" style="padding:8px 10px;">DM</div>
         <div id="dmList"></div>
 
-        <div class="section-title" style="margin-top:8px;"><span>Grupos</span><span class="pill">simples</span></div>
+        <div class="small" style="padding:8px 10px;margin-top:8px;">Grupos</div>
         <div id="groupList"></div>
       </div>
     </aside>
 
     <main class="main">
       <header class="topbar">
-        <div class="chat-head">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
           <div class="avatar" id="chatAvatar">?</div>
-          <div class="title">
-            <strong id="chatTitle">Nenhum chat selecionado</strong>
-            <span id="chatSub">Crie um DM ou um grupo</span>
+          <div style="min-width:0;">
+            <div style="font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="chatTitle">Nenhum chat</div>
+            <div class="small" id="chatSub">Crie um DM ou grupo</div>
           </div>
         </div>
-
-        <div class="row" style="gap:8px;align-items:center;">
-          <button class="btn" id="addMemberBtn" type="button" style="display:none;">+ Pessoa</button>
-        </div>
+        <button class="btn" id="addMemberBtn" type="button" style="display:none;">+ Pessoa</button>
       </header>
 
       <section class="msgs" id="msgs">
-        <div class="day">—</div>
-        <div class="small" style="text-align:center;margin-top:10px;">Nenhuma mensagem ainda.</div>
+        <div class="small" style="text-align:center;margin-top:16px;">Selecione um chat.</div>
       </section>
 
       <footer class="composer">
         <input id="file" type="file" style="display:none"/>
         <button class="iconbtn" id="attachBtn" type="button">＋</button>
-        <textarea id="input" placeholder="Escreva uma mensagem… (Enter envia, Shift+Enter quebra linha)"></textarea>
+        <textarea id="input" placeholder="Escreva uma mensagem… (Enter envia / Shift+Enter quebra)"></textarea>
         <button class="iconbtn" id="sendBtn" type="button">➤</button>
       </footer>
     </main>
   </div>
 
-  <!-- Modal: criar grupo -->
+  <!-- Modal grupo -->
   <div class="modal-backdrop" id="groupModal">
     <div class="modal">
-      <div class="brand-row" style="margin-bottom:10px;">
-        <h3>Criar grupo</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div style="font-weight:900;">Criar grupo</div>
         <button class="btn" id="groupCloseBtn" type="button">Fechar</button>
       </div>
       <div class="grid">
-        <input class="input" id="groupTitle" placeholder="Nome do grupo (ex: Projeto X)"/>
-        <textarea id="groupMembers" placeholder="Usernames (um por linha)&#10;ex: ana&#10;pedro"></textarea>
+        <input class="input" id="groupTitle" placeholder="Nome do grupo"/>
+        <textarea id="groupMembers" placeholder="Usernames (um por linha)"></textarea>
         <button class="btn primary" id="groupCreateBtn" type="button">Criar</button>
         <div class="small" id="groupMsg" style="min-height:18px;"></div>
       </div>
     </div>
   </div>
 
-  <!-- Modal: adicionar membro -->
+  <!-- Modal adicionar membro -->
   <div class="modal-backdrop" id="memberModal">
     <div class="modal">
-      <div class="brand-row" style="margin-bottom:10px;">
-        <h3>Adicionar pessoa</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div style="font-weight:900;">Adicionar pessoa</div>
         <button class="btn" id="memberCloseBtn" type="button">Fechar</button>
       </div>
       <div class="grid">
-        <input class="input" id="memberUsername" placeholder="username (ex: bia)"/>
+        <input class="input" id="memberUsername" placeholder="username"/>
         <button class="btn primary" id="memberAddBtn" type="button">Adicionar</button>
         <div class="small" id="memberMsg" style="min-height:18px;"></div>
       </div>
