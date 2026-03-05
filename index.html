@@ -4,38 +4,30 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Login</title>
+  <link rel="icon" href="favicon.png" type="image/png">
   <link rel="stylesheet" href="/assets/app.css"/>
 </head>
 <body>
   <div style="height:100%;display:grid;place-items:center;padding:14px;">
-    <div class="card" style="width:min(540px,100%);">
-      <div class="brand-row" style="margin-bottom:12px;">
-        <div class="brand-title">
-          <strong>Entrar</strong>
-          <span>Privado • Teams-like • DM + Grupos</span>
+    <div class="card" style="width:min(520px,100%);">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">
+        <div>
+          <div style="font-weight:900;">Entrar</div>
+          <div class="small">Login simples • sem confirmação de email</div>
         </div>
-
         <button class="btn" id="themeBtn" type="button">
           <span id="themeIcon">🌙</span><span id="themeLabel">Dark</span>
         </button>
       </div>
 
       <div style="display:grid;gap:10px;">
-        <input class="input" id="email" placeholder="Email" autocomplete="email"/>
+        <input class="input" id="username" placeholder="Username (ex: jean)" autocomplete="username"/>
         <input class="input" id="password" type="password" placeholder="Senha" autocomplete="current-password"/>
 
-        <div id="signupExtra" style="display:none;gap:10px;">
-          <input class="input" id="username" placeholder="Username (ex: jean)" autocomplete="username"/>
-          <div class="small">Regras: a-z, 0-9, _ e 3-20 caracteres.</div>
-        </div>
+        <button class="btn primary" id="loginBtn" type="button">Entrar</button>
+        <button class="btn" id="registerBtn" type="button">Criar conta</button>
 
-        <button class="btn primary" id="submitBtn" type="button">Entrar</button>
-
-        <div class="small" id="toggleRow">
-          Não tem conta? <a class="link" href="#" id="toggleMode">Cadastrar</a>
-        </div>
-
-        <div id="msg" class="small" style="min-height:18px;"></div>
+        <div class="small" id="msg" style="min-height:18px;"></div>
       </div>
     </div>
   </div>
