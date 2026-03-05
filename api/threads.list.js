@@ -1,10 +1,10 @@
-import { supabaseAdmin, requireUser, json } from "./_supabaseAdmin.js";
+import { supabaseAdmin } from "./_supabase.js";
+import { json, requireSession } from "./_auth.js";
 
 export default async function handler(req, res) {
   try {
     if (req.method !== "GET") return json(res, 405, { error: "Method not allowed" });
-
-    const user = await requireUser(req);
+    const { user } = await requireSession(req);
 
     const { data: tms, error: tme } = await supabaseAdmin
       .from("thread_members")
@@ -18,40 +18,37 @@ export default async function handler(req, res) {
 
     const { data: threads, error: te } = await supabaseAdmin
       .from("threads")
-      .select("id,type,title,created_at")
+      .select("id,type,title,dm_key,created_at")
       .in("id", ids);
 
     if (te) throw te;
 
+    // pra DM: mostrar o outro username
     const { data: members, error: me } = await supabaseAdmin
       .from("thread_members")
-      .select("thread_id,user_id,profiles:profiles(username)")
+      .select("thread_id,user_id,users(username)")
       .in("thread_id", ids);
 
     if (me) throw me;
 
     const { data: lastMsgs, error: le } = await supabaseAdmin
       .from("messages")
-      .select("thread_id, body, attachment_name, created_at")
+      .select("thread_id,body,attachment_name,created_at")
       .in("thread_id", ids)
       .order("created_at", { ascending: false });
 
     if (le) throw le;
 
     const lastBy = new Map();
-    for (const m of (lastMsgs || [])) {
-      if (!lastBy.has(m.thread_id)) lastBy.set(m.thread_id, m);
-    }
+    for (const m of (lastMsgs || [])) if (!lastBy.has(m.thread_id)) lastBy.set(m.thread_id, m);
 
     const out = (threads || []).map(t => {
-      let title = "Chat";
+      let title = t.type === "group" ? (t.title || "Grupo") : "DM";
 
-      if (t.type === "group") {
-        title = t.title || "Grupo";
-      } else {
+      if (t.type === "dm") {
         const mems = (members || []).filter(m => m.thread_id === t.id);
         const other = mems.find(m => m.user_id !== user.id);
-        title = other?.profiles?.username ? `@${other.profiles.username}` : "DM";
+        title = other?.users?.username ? `@${other.users.username}` : "DM";
       }
 
       const last = lastBy.get(t.id);
@@ -63,10 +60,8 @@ export default async function handler(req, res) {
       return { id: t.id, type: t.type, title, last_preview: preview, last_time: time };
     });
 
-    out.sort((a, b) => (b.last_time || "").localeCompare(a.last_time || ""));
     return json(res, 200, { threads: out });
   } catch (e) {
-    return json(res, 400, { error: e?.message || "Erro." });
+    return json(res, 500, { error: e?.message || "Erro interno" });
   }
 }
-
